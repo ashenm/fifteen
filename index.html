@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<!--
+
+  A Game of Fifteen
+
+  Ashen Gunaratne
+  mail@ashenm.ml
+
+-->
+<html>
+<head>
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1, maximum-scale=1" />
+  <meta name="msapplication-tap-highlight" content="no" />
+
+  <title>Game of Fifteen</title>
+
+  <style>
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: #FFFFFF;
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+
+    header {
+      display: none;
+      text-align: center;
+    }
+
+    footer {
+      bottom: 0;
+      padding: 0.5rem;
+      position: fixed;
+      width: 100%;
+    }
+
+    footer > div {
+      display: inline-block;
+    }
+
+    footer > div:last-of-type {
+      float: right;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    div#puzzle,
+    div#overlay {
+      height: 64vw;
+      width: 64vw;
+    }
+
+    div#puzzle {
+      border: 2.5px solid #366F9C;
+      box-sizing: content-box;
+      margin: calc((100vh - 64vw) / 2 - 5px) auto;
+      padding: 2.5px;
+    }
+
+    div#overlay {
+      background: rgba(170, 170, 170, 0.75);
+      bottom: 0;
+      font-size: xx-large;
+      left: 0;
+      margin: calc((100vh - 64vw) / 2) auto;
+      padding: calc(32vw - .5em) 0;
+      position: absolute;
+      right: 0;
+      text-align: center;
+      top: 0;
+    }
+
+    span#play {
+      background: #FFFFFF;
+      border: 2.5px solid #366F9C;
+      border-radius: 36px;
+      color: #366F9C;
+      cursor: pointer;
+      padding: 9px 16px;
+    }
+
+    div.tile {
+      background: #366F9C;
+      border: 2.5px solid #FFFFFF;
+      color: #FFFFFF;
+      cursor: grab;
+      display: inline-block;
+      font-size: x-large;
+      font-weight: bold;
+      height: 16vw;
+      padding: calc(8vw - .5em) 0;
+      text-align: center;
+      width: 16vw;
+    }
+
+    @media (orientation: landscape) {
+
+      div#puzzle,
+      div#overlay {
+        height: 64vh;
+        width: 64vh;
+      }
+
+      div#puzzle {
+        margin: calc(18vh - 5px) auto;
+      }
+
+      div#overlay {
+        margin: 18vh auto;
+        padding: calc(32vh - .5em) 0;
+      }
+
+      div.tile {
+        height: 16vh;
+        padding: calc(8vh - .5em) 0;
+        width: 16vh;
+      }
+
+    }
+
+  </style>
+
+  <!-- https://hammerjs.github.io/api/ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js" integrity="sha256-eVNjHw5UeU0jUqPPpZHAkU1z4U+QFBBY488WvueTm88=" crossorigin="anonymous"></script>
+
+  <script>
+
+    /* global Hammer */
+
+    /**
+     * @function index
+     * @summary Returns the index of a cartesian coordinate
+     * @argument {Object} coords - the cartesian coordinate
+     * @argument {Number} [size=4] - the grid width
+     * @returns {Number}
+     */
+    var index = function computeGridKey (coords, size) {
+      return coords.x + coords.y * (size || 4);
+    };
+
+    /**
+     * @function coords
+     * @summary Returns cartesian coordinates of an index
+     * @argument {Number} index - the grid index
+     * @argument {Number} [size=4] - the grid width
+     * @returns {Object}
+     */
+    var coords = function computeXYCoords (index, size) {
+      return { x: index % (size || 4), y: Math.floor(index / (size || 4)) };
+    };
+
+    /**
+     * @function manhattan
+     * @summary Returns the Manhattan Distance of two cartesian coordinates
+     * @argument {Number} a - the start grid index
+     * @argument {Number} b - the destination grid index
+     * @argument {Number} [size=4] - the grid width
+     * @returns {Object}
+     */
+    var manhattan = function computeManhattanDistance (a, b, size) {
+
+      var coordsA = coords(a, size || 4);
+      var coordsB = coords(b, size || 4);
+
+      return { x: coordsB.x - coordsA.x, y: coordsB.y - coordsA.y };
+
+    };
+
+    /**
+     * @function movements
+     * @summary Returns the list of possible manoeuvres
+     * @argument {Number} key - the current grid index
+     * @argument {Number} [size=4] - the grid width
+     * @argument {Array} [occupancy] - the manoeuvre constraints
+     * @returns {Object}
+     */
+    var movements = function computeIndexMoves (key, size, occupancy) {
+
+      var offset;
+      var manoeuvre;
+
+      size = size || 4;
+      occupancy = occupancy || [];
+
+      var manoeuvres = {};
+      var position = coords(key, size);
+
+      // left
+      offset = position.x - 1;
+      manoeuvre = index({ x: offset, y: position.y });
+
+      // handle left edge nodes
+      if (!occupancy[manoeuvre] && offset > -1) {
+        manoeuvres.left = { index: manoeuvre, x: offset, y: position.y };
+      }
+
+      // right
+      offset = position.x + 1;
+      manoeuvre = index({ x: offset, y: position.y });
+
+      // handle right edge nodes
+      if (!occupancy[manoeuvre] && offset < size) {
+        manoeuvres.right = { index: manoeuvre, x: offset, y: position.y };
+      }
+
+      // up
+      offset = position.y - 1;
+      manoeuvre = index({ x: position.x, y: offset });
+
+      // handle top row nodes
+      if (!occupancy[manoeuvre] && offset > -1) {
+        manoeuvres.up = { index: manoeuvre, x: position.x, y: offset };
+      }
+
+      // down
+      offset = position.y + 1;
+      manoeuvre = index({ x: position.x, y: offset });
+
+      // handle bottom nodes
+      if (!occupancy[manoeuvre] && offset < size) {
+        manoeuvres.down = { index: manoeuvre, x: position.x, y: offset };
+      }
+
+      return manoeuvres;
+
+    };
+
+    /**
+     * @function seeds
+     * @summary Generates an array of random numbers
+     * @argument {Number} min - the minimum seed value
+     * @argument {Number} max - the maximum seed value
+     * @returns {Array}
+     */
+    var seeds = function generateRandomSeeds (min, max) {
+
+      var index;
+
+      min = min || 1;
+      max = max || 15;
+
+      var seed = min;
+      var length = max - min + 1;
+      var collection = new Array(length);
+
+      while (seed <= max) {
+
+        // randomise value index
+        index = Math.floor(Math.random() * length);
+
+        // avoid index overwrite
+        if (collection[index]) {
+          continue;
+        }
+
+        // populate index value
+        collection[index] = seed;
+        seed = seed + 1;
+
+      }
+
+      return collection;
+
+    };
+
+    /**
+     * @function initialise
+     * @summary Initialises fifteen puzzle board
+     * @argument {HTMLElement} container - the puzzle container
+     * @returns {Array}
+     */
+    var initialise = function constructPuzzle (container) {
+
+      var clone;
+      var hammer;
+      var index;
+
+      var node = document.createElement('div');
+      var tiles = seeds(1, 15);
+
+      // randomise tile color
+      node.style.background = '#'.concat(Math.floor(Math.random() * 16777215).toString(16));
+      container.style.borderColor = node.style.background;
+
+      // empty container children
+      while (container.lastChild) {
+        container.removeChild(container.lastChild);
+      }
+
+      // construct tiles
+      for (index = 0; index < tiles.length; index++) {
+
+        clone = node.cloneNode(false);
+        hammer = new Hammer(clone, { recognizers: [
+          [ Hammer.Pan, { direction: Hammer.DIRECTION_ALL, threshold: 64 } ]
+        ] });
+
+        clone.className = 'tile';
+        clone.innerText = tiles[index];
+        clone.dataset.index = clone.dataset.origin = index;
+
+        clone.dataset.translateX = 0;
+        clone.dataset.translateY = 0;
+
+        hammer.on('panleft panright panup pandown', navigate);
+        hammer.on('panend', position);
+
+        container.appendChild(clone);
+
+      }
+
+      return tiles;
+
+    };
+
+    /**
+     * @callback navigate
+     * @summary Handles tile movement attempts
+     * @argument {Event} - the corresponding attempt event
+     */
+    var navigate = function movePuzzleTile (event) {
+
+      var styles = getComputedStyle(event.target); // TODO
+      var manoeuvres = movements(event.target.dataset.index, null, window.tiles);
+
+      var translateX = +event.target.dataset.translateX;
+      var translateY = +event.target.dataset.translateY;
+
+      if (manoeuvres.left && /panleft/.test(event.type)) {
+        event.target.style.transform = 'translate(' + (translateX - styles.width.replace(/px$/, '')) + 'px, ' + translateY + 'px)';
+        event.target.dataset.previous = event.target.dataset.index;
+        event.target.dataset.index = manoeuvres.left.index;
+        return;
+      }
+
+      if (manoeuvres.right && /panright/.test(event.type)) {
+        event.target.style.transform = 'translate(' + (translateX + +styles.width.replace(/px$/, '')) + 'px, ' + translateY + 'px)';
+        event.target.dataset.previous = event.target.dataset.index;
+        event.target.dataset.index = manoeuvres.right.index;
+        return;
+      }
+
+      if (manoeuvres.up && /panup/.test(event.type)) {
+        event.target.style.transform = 'translate(' + translateX + 'px, ' + (translateY - styles.width.replace(/px$/, '')) + 'px)';
+        event.target.dataset.previous = event.target.dataset.index;
+        event.target.dataset.index = manoeuvres.up.index;
+        return;
+      }
+
+      if (manoeuvres.down && /pandown/.test(event.type)) {
+        event.target.style.transform = 'translate(' + translateX + 'px, ' + (translateY + +styles.width.replace(/px$/, '')) + 'px)';
+        event.target.dataset.previous = event.target.dataset.index;
+        event.target.dataset.index = manoeuvres.down.index;
+        return;
+      }
+
+    };
+
+    /**
+     * @callback position
+     * @summary Handles a successful tile move
+     * @argument {Event} - the corresponding move event
+     * @returns {Boolean}
+     */
+    var position = function afterTileNavigation (event) {
+
+      if (!event.target.dataset.previous) {
+        return;
+      }
+
+      var styles = getComputedStyle(event.target); // TODO
+      var offset = +styles.width.replace(/px$/, ''); // TODO
+
+      var deviation = manhattan(event.target.dataset.origin, event.target.dataset.index);
+
+      window.tiles[event.target.dataset.previous] = '';
+      window.tiles[event.target.dataset.index] = +event.target.innerText;
+
+      event.target.dataset.translateX = deviation.x * offset;
+      event.target.dataset.translateY = deviation.y * offset;
+
+      event.target.dataset.previous = '';
+
+      if (window.tiles.join() !== '1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,') {
+        return false;
+      }
+
+      window.overlay.play.innerText = 'REPLAY';
+      window.overlay.style.display = '';
+
+      return !window.reset.click();
+
+    };
+
+    document.onreadystatechange = function onDOMContentLoaded () {
+
+      if (document.readyState !== 'interactive') {
+        return false;
+      }
+
+      var pasue = document.getElementById('pause');
+      var puzzle = document.getElementById('puzzle');
+      var timer = document.getElementById('timer');
+
+      window.overlay = document.getElementById('overlay');
+      window.overlay.play = document.getElementById('play');
+      window.reset = document.getElementById('reset');
+
+      window.reset.addEventListener('click', function (e) {
+        window.tiles = initialise(puzzle).concat('');
+        window.overlay.play.style.borderColor = puzzle.style.borderColor;
+        window.overlay.play.style.color = puzzle.style.borderColor;
+        window.overlay.style.display = '';
+      }, { passive: true });
+
+      window.overlay.play.addEventListener('click', function (e) {
+        e.target.parentElement.style.display = 'none';
+      }, { passive: true });
+
+      // TODO
+      // implement timer
+      // implement pausing
+
+      window.reset.click();
+
+    };
+
+  </script>
+
+</head>
+<body>
+  <header>
+    <h1>Game of Fifteen</h1>
+  </header>
+  <main>
+    <div id="puzzle"></div>
+    <div id="overlay">
+      <span id="play">PLAY</span>
+    </div>
+  </main>
+  <footer>
+    <div style="visibility: hidden;">
+      <output id="timer">00:00</output>
+      <button id="pause" disabled="disabled">PAUSE</button>
+    </div>
+    <div>
+      <button id="reset">RESET</button>
+    </div>
+  </footer>
+</body>
+</html>
+<!-- vim: set expandtab shiftwidth=2 syntax=html: -->
