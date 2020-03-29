@@ -520,6 +520,24 @@
 
       }, { passive: true });
 
+      window.addEventListener('resize', function (event) {
+
+        var tile;
+        var displacement;
+        var offset;
+
+        var tiles = document.getElementsByClassName('tile');
+
+        for (tile of tiles) {
+          offset = +getComputedStyle(tile).width.replace(/px$/, ''); // TODO
+          displacement = manhattan(tile.dataset.origin, tile.dataset.index);
+          tile.style.transform = 'translate(' + displacement.x * offset + 'px, ' + displacement.y * offset + 'px)';
+        }
+
+        return false;
+
+      });
+
       window.reset.click();
 
     };
