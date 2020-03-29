@@ -408,10 +408,45 @@
         return false;
       }
 
+      window.timer = window.clearInterval(window.timer);
+
       window.overlay.play.innerText = 'REPLAY';
+      window.overlay.pause.disabled = true;
       window.overlay.style.display = '';
 
-      return !window.reset.click();
+      return true;
+
+    };
+
+    /**
+     * @callback clock
+     * @summary Updates stopwatch
+     * @argument {HTMLElement} element - the timer element
+     */
+    var clock = function updateStopwatch (element) {
+
+      var hours = +element.dataset.hours || 0;
+      var minutes = +element.dataset.minutes || 0;
+      var seconds = +element.dataset.seconds || 0;
+
+      if (seconds >= 59) {
+        minutes += 1;
+        seconds = -1;
+      }
+
+      if (minutes >= 60) {
+        hours += 1;
+      }
+
+      hours = hours.toString().padStart(2, 0);
+      minutes = minutes.toString().padStart(2, 0);
+      seconds = (seconds + 1).toString().padStart(2, 0);
+
+      element.innerText = +hours ? [ hours, minutes, seconds ].join(':') : [ minutes, seconds ].join(':');
+
+      element.dataset.seconds = seconds;
+      element.dataset.minutes = minutes;
+      element.dataset.hours = hours;
 
     };
 
@@ -421,30 +456,69 @@
         return false;
       }
 
-      var pasue = document.getElementById('pause');
       var puzzle = document.getElementById('puzzle');
-      var timer = document.getElementById('timer');
 
       window.moves = document.getElementById('moves');
       window.overlay = document.getElementById('overlay');
+      window.overlay.timer = document.getElementById('timer');
+      window.overlay.pause = document.getElementById('pause');
       window.overlay.play = document.getElementById('play');
       window.reset = document.getElementById('reset');
 
       window.reset.addEventListener('click', function (e) {
+
         window.tiles = initialise(puzzle).concat('');
-        window.overlay.play.style.borderColor = puzzle.style.borderColor;
+        window.timer = window.clearInterval(window.timer);
+
         window.overlay.play.style.color = puzzle.style.borderColor;
+        window.overlay.play.style.borderColor = puzzle.style.borderColor;
+
+        window.overlay.timer.innerText = '00:00';
+        window.overlay.timer.dataset.seconds = 0;
+        window.overlay.timer.dataset.minutes = 0;
+        window.overlay.timer.dataset.hours = 0;
+        window.overlay.pause.disabled = true;
+
+        window.overlay.play.innerText = 'PLAY';
+        window.overlay.pause.innerText = 'PAUSE';
+
         window.overlay.style.display = '';
         window.moves.innerText = 0;
+
       }, { passive: true });
+
+      window.overlay.pause.addEventListener('click', function (e) {
+
+        // handle resumptions
+        if (event.target.innerText !== 'PAUSE') {
+          event.target.innerText = 'PAUSE';
+          window.overlay.play.click();
+          return;
+        }
+
+        // show overlay
+        window.overlay.style.display = '';
+        window.overlay.play.innerText = 'RESUME';
+        window.overlay.pause.innerText = 'RESUME';
+
+        // stop stopwatch
+        window.clearInterval(window.timer);
+
+      });
 
       window.overlay.play.addEventListener('click', function (e) {
-        e.target.parentElement.style.display = 'none';
-      }, { passive: true });
 
-      // TODO
-      // implement timer
-      // implement pausing
+        var timer = +window.timer;
+
+        if (timer !== timer) {
+          window.reset.click();
+          window.overlay.pause.removeAttribute('disabled');
+        }
+
+        window.timer = setInterval(clock, 1000, window.overlay.timer);
+        e.target.parentElement.style.display = 'none';
+
+      }, { passive: true });
 
       window.reset.click();
 
