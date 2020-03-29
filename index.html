@@ -53,6 +53,7 @@
 
     button {
       cursor: pointer;
+      padding: 2.5px 5px;
     }
 
     div#puzzle,
@@ -88,6 +89,16 @@
       color: #366F9C;
       cursor: pointer;
       padding: 9px 16px;
+    }
+
+    output#moves,
+    output#timer {
+      background: #CDCDCD;
+      border-radius: 16px;
+      display: inline-block;
+      min-width: 4ch;
+      padding: 2.5px 5px;
+      text-align: center;
     }
 
     div.tile {
@@ -386,6 +397,7 @@
 
       window.tiles[event.target.dataset.previous] = '';
       window.tiles[event.target.dataset.index] = +event.target.innerText;
+      window.moves.innerText = +window.moves.innerText + 1;
 
       event.target.dataset.translateX = deviation.x * offset;
       event.target.dataset.translateY = deviation.y * offset;
@@ -413,6 +425,7 @@
       var puzzle = document.getElementById('puzzle');
       var timer = document.getElementById('timer');
 
+      window.moves = document.getElementById('moves');
       window.overlay = document.getElementById('overlay');
       window.overlay.play = document.getElementById('play');
       window.reset = document.getElementById('reset');
@@ -422,6 +435,7 @@
         window.overlay.play.style.borderColor = puzzle.style.borderColor;
         window.overlay.play.style.color = puzzle.style.borderColor;
         window.overlay.style.display = '';
+        window.moves.innerText = 0;
       }, { passive: true });
 
       window.overlay.play.addEventListener('click', function (e) {
@@ -450,7 +464,8 @@
     </div>
   </main>
   <footer>
-    <div style="visibility: hidden;">
+    <div>
+      <output id="moves">0</output>
       <output id="timer">00:00</output>
       <button id="pause" disabled="disabled">PAUSE</button>
     </div>
