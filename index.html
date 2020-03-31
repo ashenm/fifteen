@@ -538,6 +538,23 @@
 
       }, { passive: true });
 
+      window.addEventListener('focus', function (event) {
+
+        var timer = +window.timer;
+
+        // ensure game alreay started
+        if (timer !== timer) {
+          return;
+        }
+
+        window.overlay.play.click();
+
+      }, { passive: true });
+
+      window.addEventListener('blur', function (event) {
+        window.overlay.pause.click();
+      }, { passive: true });
+
       window.reset.click();
 
     };
