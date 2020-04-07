@@ -286,6 +286,35 @@
     };
 
     /**
+     * @function validate
+     * @summary Determines solvability of an arrangement
+     * @argument {Array} seeds - the puzzle arrangement
+     * @returns {Boolean}
+     */
+    var validate = function assessPuzzleSolvability (seeds) {
+
+      var index = 0;
+      var adjacent = 1;
+      var inversions = 0;
+
+      // TODO optimise to achieve O(n log n)
+      while (seeds[index]) {
+
+        if (!seeds[adjacent]) {
+          adjacent = ++index + 1;
+          continue;
+        }
+
+        inversions += seeds[adjacent] < seeds[index];
+        adjacent += 1;
+
+      }
+
+      return !(inversions % 2);
+
+    };
+
+    /**
      * @function initialise
      * @summary Initialises fifteen puzzle board
      * @argument {HTMLElement} container - the puzzle container
@@ -299,6 +328,13 @@
 
       var node = document.createElement('div');
       var tiles = seeds(1, 15);
+
+      // ensure solvable
+      if (!validate(tiles)) {
+        tiles[0] = tiles[0] + tiles[1];
+        tiles[1] = tiles[0] - tiles[1];
+        tiles[0] = tiles[0] - tiles[1];
+      }
 
       // randomise tile color
       node.style.background = '#'.concat(Math.floor(Math.random() * 16777215).toString(16));
